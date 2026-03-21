@@ -91,7 +91,7 @@
       if (!url) return '';
       const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/) || url.match(/\/d\/([a-zA-Z0-9_-]+)/);
       if (match && match[1]) {
-        return `https://lh3.googleusercontent.com/d/${match[1]}`;
+        return `https://lh3.googleusercontent.com/d/$${match[1]}`;
       }
       return url;
     };
@@ -509,6 +509,11 @@
       const [showAuthModal, setShowAuthModal] = useState(false);   
       const [showImageModal, setShowImageModal] = useState(false); 
       const [showBannerModal, setShowBannerModal] = useState(false); 
+
+      // ✨ ประกาศ State ตัวแปรสำหรับฟีเจอร์ช่องรูปที่ 2
+      const [showMonthlyImageModal, setShowMonthlyImageModal] = useState(false);
+      const [monthlyImage, setMonthlyImage] = useState('');
+      const [tempMonthlyImageUrl, setTempMonthlyImageUrl] = useState('');
       
       const [searchQuery, setSearchQuery] = useState('');
       const [filterType, setFilterType] = useState('all');
@@ -589,6 +594,10 @@
               if (response.data.channels && response.data.channels.length > 0) setChannels(response.data.channels);
               if (response.data.profileImage) setProfileImage(response.data.profileImage);
               if (response.data.bannerImage) setBannerImage(response.data.bannerImage);
+              
+              // ✨ ดึงลิงก์รูปช่องที่ 2 จาก Google Sheets เมื่อเริ่มโหลดแอป
+              if (response.data.monthlyImage) setMonthlyImage(response.data.monthlyImage);
+              
               if (response.data.bannerVisible !== undefined) setIsBannerVisible(response.data.bannerVisible);
               if (response.data.lockedNextDate) setSelectedNextDate(response.data.lockedNextDate);
             }
@@ -645,6 +654,12 @@
       }, [tasks, selectedNextDate]);
 
       const waitingCount = useMemo(() => tasks.filter(t => t.status !== 'status_5').length, [tasks]);
+
+      // ✨ ฟังก์ชันคำนวณยอดคิวงานในเดือนปัจจุบัน
+      const currentMonthTotal = useMemo(() => {
+        const currentMonthKey = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+        return tasks.filter(t => t.deadline && t.deadline.substring(0, 7) === currentMonthKey).length;
+      }, [tasks]);
 
       const handleStatusChange = useCallback((id, newStatus) => {
         setTasks(prev => prev.map(t => {
@@ -808,6 +823,38 @@
                       <ProgressFlower progress={progress} todayTasksLength={todayTasks.length} doneToday={doneToday} triggerFlowerBounce={triggerFlowerBounce} isBouncing={isBouncing} />
                     </div>
                   </div>
+
+                  {/* ✨ แถวที่ 2: ช่องใส่รูป และ สถิติคิวเดือนนี้ */}
+                  <div className="flex gap-3 h-28 mb-4">
+                    <div className="flex-[1.6] backdrop-blur-sm rounded-[28px] shadow-lg relative overflow-hidden group transition-all" style={{ backgroundColor: `${COLORS.cardWhite}cc`, borderWidth: '1px', borderColor: COLORS.cardBorder, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.03)' }}>
+                       {monthlyImage ? (
+                         <img src={monthlyImage} alt="Monthly Image" className="w-full h-full object-cover" />
+                       ) : (
+                         <div className="w-full h-full flex flex-col items-center justify-center opacity-50" style={{ backgroundColor: COLORS.cardInner }}>
+                             <span className="text-2xl mb-1">🖼️</span>
+                             <span className="text-[8px] font-bold" style={{ color: COLORS.textSoft }}>Add Image</span>
+                         </div>
+                       )}
+                       {isAdmin && (
+                         <button onClick={(e) => { e.stopPropagation(); setShowMonthlyImageModal(true); }} className="absolute top-2 right-2 p-1.5 rounded-full shadow-sm transition-colors opacity-0 group-hover:opacity-100" style={{ backgroundColor: COLORS.buttonBg, color: COLORS.textSoft, borderColor: COLORS.cardBorder, borderWidth: '1px' }}>
+                             <IconImage size={16} />
+                         </button>
+                       )}
+                    </div>
+                    <div className="flex-1 backdrop-blur-sm rounded-[28px] p-2 flex flex-col items-center justify-center shadow-lg relative overflow-hidden transition-all duration-300" style={{ backgroundColor: `${COLORS.cardWhite}cc`, borderWidth: '1px', borderColor: COLORS.cardBorder, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.03)' }}>
+                       <div className="absolute top-2 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-md text-[7px] font-black shadow-sm border uppercase tracking-wider whitespace-nowrap z-10" style={{ color: COLORS.pinkDeep, backgroundColor: COLORS.buttonBg, borderColor: COLORS.cardBorder }}>คิวเดือนนี้</div>
+                       <div className="relative mt-4 flex flex-col items-center">
+                          <div className="relative">
+                             <div className="absolute inset-0 blur-lg rounded-full opacity-40 scale-125" style={{ backgroundColor: COLORS.pink }}></div>
+                             <div className="w-12 h-12 rounded-full flex flex-col items-center justify-center shadow-[inset_0_2px_8px_rgba(0,0,0,0.02)] border-2 relative z-10" style={{ backgroundColor: COLORS.cardInner, borderColor: COLORS.pink }}>
+                                <span className="text-2xl font-black leading-none" style={{ color: COLORS.pinkDeep }}>{currentMonthTotal}</span>
+                             </div>
+                          </div>
+                          <span className="text-[8px] font-black opacity-60 uppercase mt-1.5 relative z-10" style={{ color: COLORS.pinkDeep }}>คิวงาน</span>
+                       </div>
+                    </div>
+                  </div>
+
                   <div className="flex items-center justify-between mb-2.5 ml-1">
                     <h2 className="text-[10px] font-black italic uppercase tracking-[0.3em] opacity-60" style={{ color: COLORS.textSoft }}>Today's Task</h2>
                     <div className="h-[1px] flex-1 mx-3" style={{ background: `linear-gradient(to right, ${COLORS.textMain}40, transparent)` }}></div>
@@ -954,6 +1001,29 @@
                        )}
                      </div>
                      <button type="button" onClick={() => { setShowModal(false); setEditingTask(null); }} className="w-full text-[9px] font-bold mt-2 uppercase tracking-widest" style={{ color: COLORS.textSoft }}>Close</button>
+                   </div>
+                </form>
+              </div>
+            )}
+
+            {/* ✨ MODAL สำหรับเปลี่ยนรูปช่องที่ 2 */}
+            {showMonthlyImageModal && (
+              <div className="fixed inset-0 z-[120] flex items-center justify-center p-6 bg-black/10 backdrop-blur-[2px] animate-fadeIn">
+                <form onSubmit={(e) => {
+                    e.preventDefault();
+                    if (tempMonthlyImageUrl) {
+                      let finalUrl = formatDriveLink(tempMonthlyImageUrl);
+                      setMonthlyImage(finalUrl);
+                      fetchAPI({ action: 'saveMonthlyImage', imageUrl: finalUrl });
+                    }
+                    setShowMonthlyImageModal(false);
+                    setTempMonthlyImageUrl('');
+                  }} className="backdrop-blur-xl w-full max-w-xs rounded-[35px] p-6 shadow-2xl border animate-slideUp" style={{ backgroundColor: `${COLORS.modalBg}f2`, borderColor: COLORS.cardBorder }}>
+                   <h3 className="text-sm font-black mb-4 text-center" style={{ color: COLORS.textMain }}>เปลี่ยนรูปภาพช่องที่ 2</h3>
+                   <div className="space-y-2">
+                     <input type="url" required value={tempMonthlyImageUrl} onChange={(e) => setTempMonthlyImageUrl(e.target.value)} className="w-full p-3.5 rounded-2xl border outline-none text-[11px] shadow-sm transition-all text-center" style={{ backgroundColor: COLORS.searchInputBg, borderColor: COLORS.cardBorder, color: COLORS.textMain }} placeholder="วางลิงก์รูปภาพ Google Drive..." />
+                     <button type="submit" className="w-full py-3.5 rounded-2xl font-black text-xs mt-3 text-white shadow-lg active:scale-95 transition-all" style={{ backgroundColor: COLORS.pinkDeep }}>Save Image</button>
+                     <button type="button" onClick={() => { setShowMonthlyImageModal(false); setTempMonthlyImageUrl(''); }} className="w-full text-[9px] font-bold mt-1 uppercase tracking-widest" style={{ color: COLORS.textSoft }}>Close</button>
                    </div>
                 </form>
               </div>
@@ -1110,18 +1180,5 @@
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
-   <script>
-  document.addEventListener('contextmenu', function(e) {
-    e.preventDefault();
-  });
-
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'F12' || e.keyCode === 123) { e.preventDefault(); return false; }
-    if (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'i')) { e.preventDefault(); return false; }
-    if (e.ctrlKey && e.shiftKey && (e.key === 'J' || e.key === 'j')) { e.preventDefault(); return false; }
-    if (e.ctrlKey && (e.key === 'U' || e.key === 'u')) { e.preventDefault(); return false; }
-    if (e.ctrlKey && (e.key === 'S' || e.key === 's')) { e.preventDefault(); return false; }
-  });
-</script>
 </body>
 </html>
